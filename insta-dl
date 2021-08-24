@@ -11,6 +11,8 @@ import wget
 
 
 def download_media(media_list):
+    error = 0
+
     try:
         if not media_list:
             raise Exception('Media URLs list is empty.')
@@ -24,6 +26,9 @@ def download_media(media_list):
         print('Done downloading %d file(s)!' % filecount)
     except Exception as e:
         print(e, file=sys.stderr)
+        error = 1
+
+    return error
 
 
 def parse_ig_json(content):
@@ -149,12 +154,18 @@ if __name__ == '__main__':
     if args.url is None and args.json is None and args.list is None:
         print('Neither IG URL nor JSON file nor list of URLs provided!')
         print('Accepting URL(s) from standard input...')
-        download_media(get_media_list_from_url_list(get_ig_urls_from_stdin()))
+        return_code = download_media(
+            get_media_list_from_url_list(get_ig_urls_from_stdin()))
     else:
+        return_code = 0
+
         if args.url is not None:
-            download_media(get_media_list_from_url(args.url))
+            return_code += download_media(get_media_list_from_url(args.url))
         if args.json is not None:
-            download_media(get_media_list_from_json_file(args.json))
+            return_code += download_media(
+                get_media_list_from_json_file(args.json))
         if args.list is not None:
-            download_media(get_media_list_from_url_list(
+            return_code += download_media(get_media_list_from_url_list(
                 get_ig_urls_from_filelist(args.list)))
+
+    sys.exit(return_code)
