@@ -3,10 +3,27 @@
 import argparse
 import fileinput
 import json
+from json.decoder import JSONDecodeError
 import re
 import requests
 import sys
 import wget
+
+
+def download_media(media_list):
+    try:
+        if not media_list:
+            raise Exception('Media URLs list is empty.')
+        filecount = 0
+        for media_url in media_list:
+            print('Downloading file %d of %d...' %
+                  (filecount + 1, len(media_list)))
+            file = wget.download(media_url)
+            filecount += 1
+            print()
+        print('Done downloading %d file(s)!' % filecount)
+    except Exception as e:
+        print(e, file=sys.stderr)
 
 
 def parse_ig_json(content):
@@ -32,43 +49,31 @@ def parse_ig_json(content):
     return urls
 
 
-def download_media(media_list):
-    try:
-        if not media_list:
-            raise Exception('No IG media URLs in the list.')
-        filecount = 0
-        for media_url in media_list:
-            print('Downloading file %d of %d...' %
-                  (filecount + 1, len(media_list)))
-            file = wget.download(media_url)
-            filecount += 1
-            print()
-        print('Done downloading %d file(s)!' % filecount)
-    except Exception as e:
-        print(e, file=sys.stderr)
-
-
 def get_media_list_from_url(url):
     url_pattern = r'https:\/\/www\.instagram\.com\/(p|reel|tv)\/[a-zA-Z0-9_-]{11}\/'
     user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36'
     headers = {'User-Agent': user_agent}
-    media_urls = []
+    media_list = []
 
     try:
         if re.fullmatch(url_pattern, url) is None:
             raise Exception(
                 "URL '%s' doesn't match IG media URL format!" % url)
         graphql_url = url + '?__a=1'
-        content = requests.get(graphql_url, headers=headers)
-        if content.status_code != 200:
-            raise Exception("Error trying to fetch from URL '%s' (HTTP status code: %d)" %
-                            (url, content.status_code))
-        json_content = content.json()
-        media_urls = parse_ig_json(json_content)
+        response = requests.get(graphql_url, headers=headers)
+        if response.status_code != 200:
+            raise Exception("Received HTTP status code %d when trying to fetch from URL '%s'!" %
+                            (response.status_code, url))
+        json_content = json.loads(response.content)
+        media_list = parse_ig_json(json_content)
+    except JSONDecodeError:
+        print('Content is not in JSON format!', file=sys.stderr)
+        print(
+            'You probably must be logged in to fetch JSON content from the URL.', file=sys.stderr)
     except Exception as e:
         print(e, file=sys.stderr)
 
-    return media_urls
+    return media_list
 
 
 def get_media_list_from_json_file(filename):
@@ -82,8 +87,8 @@ def get_media_list_from_json_file(filename):
     except IOError:
         print("Seems file '%s' doesn't exist or has restricted permissions!" %
               filename, file=sys.stderr)
-    except ValueError:
-        print("Seems file '%s' has no JSON content!" %
+    except JSONDecodeError:
+        print("Content of file '%s' is not in JSON format!" %
               filename, file=sys.stderr)
     except Exception as e:
         print('Unexpected exception:', e, file=sys.stderr)
@@ -91,8 +96,17 @@ def get_media_list_from_json_file(filename):
     return media_urls
 
 
-def get_media_list_from_filelist(filename):
-    urls, medias_urls = [], []
+def get_media_list_from_url_list(url_list):
+    media_list = []
+
+    for url in url_list:
+        media_list.extend(get_media_list_from_url(url))
+
+    return media_list
+
+
+def get_ig_urls_from_filelist(filename):
+    urls = []
 
     try:
         with open(filename, 'r') as file:
@@ -103,16 +117,12 @@ def get_media_list_from_filelist(filename):
               filename, file=sys.stderr)
     except Exception as e:
         print('Unexpected exception:', e, file=sys.stderr)
-    finally:
-        for url in urls:
-            media_list = get_media_list_from_url(url)
-            medias_urls.extend(media_list)
 
-    return medias_urls
+    return urls
 
 
-def get_media_list_from_stdin():
-    urls, medias_urls = [], []
+def get_ig_urls_from_stdin():
+    urls = []
 
     try:
         for url in fileinput.input():
@@ -121,12 +131,8 @@ def get_media_list_from_stdin():
         print('\nReading from stdin interrupted')
     except Exception as e:
         print('Unexpected exception:', e, file=sys.stderr)
-    finally:
-        for url in urls:
-            media_list = get_media_list_from_url(url)
-            medias_urls.extend(media_list)
 
-    return medias_urls
+    return urls
 
 
 if __name__ == '__main__':
@@ -143,11 +149,12 @@ if __name__ == '__main__':
     if args.url is None and args.json is None and args.list is None:
         print('Neither IG URL nor JSON file nor list of URLs provided!')
         print('Accepting URL(s) from standard input...')
-        download_media(get_media_list_from_stdin())
+        download_media(get_media_list_from_url_list(get_ig_urls_from_stdin()))
     else:
         if args.url is not None:
             download_media(get_media_list_from_url(args.url))
         if args.json is not None:
             download_media(get_media_list_from_json_file(args.json))
         if args.list is not None:
-            download_media(get_media_list_from_filelist(args.list))
+            download_media(get_media_list_from_url_list(
+                get_ig_urls_from_filelist(args.list)))
