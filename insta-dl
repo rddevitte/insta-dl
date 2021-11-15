@@ -7,7 +7,17 @@ from json.decoder import JSONDecodeError
 import re
 import requests
 import sys
+from urllib.parse import urlparse
 import wget
+
+
+def add_into(x, y):
+    for f in y.items():
+        p, q = f
+        if p not in x:
+            x[p] = q
+        else:
+            x[p] += q
 
 
 def download_media(media_list):
@@ -16,14 +26,22 @@ def download_media(media_list):
     try:
         if not media_list:
             raise Exception('Media URLs list is empty.')
-        filecount = 0
-        for media_url in media_list:
-            print('Downloading file %d of %d...' %
-                  (filecount + 1, len(media_list)))
-            file = wget.download(media_url)
-            filecount += 1
-            print()
-        print('Done downloading %d file(s)!' % filecount)
+
+        for medias in media_list.items():
+            username, media_urls = medias
+            filecount = 0
+            for url in media_urls:
+                fname = re.search(r'^\/.+\/(.+)$',
+                                  urlparse(url).path).group(1)
+
+                print('Downloading file %d of %d...' %
+                      (filecount + 1, len(media_urls)))
+
+                file = wget.download(url, username + '.' + fname)
+                filecount += 1
+                print()
+            print("Done downloading %d file(s) from user '%s'!" %
+                  (filecount, username))
     except Exception as e:
         print(e, file=sys.stderr)
         error = 1
@@ -51,14 +69,16 @@ def parse_ig_json(content):
 
             urls.append(url)
 
-    return urls
+    username = insta['owner']['username']
+
+    return {username: urls}
 
 
 def get_media_list_from_url(url):
     url_pattern = r'https:\/\/www\.instagram\.com\/(p|reel|tv)\/[a-zA-Z0-9_-]{11}\/'
     user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36'
     headers = {'User-Agent': user_agent}
-    media_list = []
+    media_list = {}
 
     try:
         if re.fullmatch(url_pattern, url) is None:
@@ -67,14 +87,16 @@ def get_media_list_from_url(url):
         graphql_url = url + '?__a=1'
         response = requests.get(graphql_url, headers=headers)
         if response.status_code != 200:
-            raise Exception("Received HTTP status code %d when trying to fetch from URL '%s'!" %
-                            (response.status_code, url))
+            raise Exception(
+                "Received HTTP status code %d when trying to fetch from URL '%s'!" %
+                (response.status_code, url))
         json_content = json.loads(response.content)
         media_list = parse_ig_json(json_content)
     except JSONDecodeError:
         print('Content is not in JSON format!', file=sys.stderr)
         print(
-            'You probably must be logged in to fetch JSON content from the URL.', file=sys.stderr)
+            'You probably must be logged in to fetch JSON content from the URL.',
+            file=sys.stderr)
     except Exception as e:
         print(e, file=sys.stderr)
 
@@ -82,7 +104,7 @@ def get_media_list_from_url(url):
 
 
 def get_media_list_from_json_file(filename):
-    media_urls = []
+    media_urls = {}
 
     try:
         with open(filename, 'r') as file:
@@ -102,10 +124,10 @@ def get_media_list_from_json_file(filename):
 
 
 def get_media_list_from_url_list(url_list):
-    media_list = []
+    media_list = {}
 
     for url in url_list:
-        media_list.extend(get_media_list_from_url(url))
+        add_into(media_list, get_media_list_from_url(url))
 
     return media_list
 
@@ -148,7 +170,10 @@ if __name__ == '__main__':
         '-j', '--json',
         help='File containing media data in JSON format (GraphQL)', type=str)
     parser.add_argument(
-        '-l', '--list', help="Text file containing a list of IG URL's", type=str)
+        '-l',
+        '--list',
+        help="Text file containing a list of IG URL's",
+        type=str)
     args = parser.parse_args()
 
     if args.url is None and args.json is None and args.list is None:
