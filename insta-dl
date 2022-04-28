@@ -53,33 +53,64 @@ def download_media(media_list):
 
 
 def parse_ig_json(content):
-    insta = content['graphql']['shortcode_media']
     urls = []
 
-    if 'edge_sidecar_to_children' not in insta:
-        if insta['is_video']:
-            url = insta['video_url']
-        else:
-            url = insta['display_resources'][2]['src']
+    # "Old" syntax
+    if 'graphql' in content:
+        insta = content['graphql']['shortcode_media']
 
-        urls.append(url)
-    else:
-        for multiple in insta['edge_sidecar_to_children']['edges']:
-            if multiple['node']['is_video']:
-                url = multiple['node']['video_url']
+        if 'edge_sidecar_to_children' not in insta:
+            if insta['is_video']:
+                url = insta['video_url']
             else:
-                url = multiple['node']['display_resources'][2]['src']
+                url = insta['display_resources'][2]['src']
 
             urls.append(url)
+        else:
+            for multiple in insta['edge_sidecar_to_children']['edges']:
+                if multiple['node']['is_video']:
+                    url = multiple['node']['video_url']
+                else:
+                    url = multiple['node']['display_resources'][2]['src']
 
-    username = insta['owner']['username']
+                urls.append(url)
+
+        username = insta['owner']['username']
+
+    # "New" syntax
+    elif 'items' in content:
+        insta = content['items'][0]
+
+        if 'carousel_media_count' not in insta:
+            if insta['media_type'] == 1:
+                url = insta['image_versions2']['candidates'][0]['url']
+            elif insta['media_type'] == 2:
+                url = insta['video_versions'][0]['url']
+
+            urls.append(url)
+        else:
+            count = insta['carousel_media_count']
+
+            for i in range(count):
+                if insta['carousel_media'][i]['media_type'] == 1:
+                    url = insta['carousel_media'][i]['image_versions2']['candidates'][0]['url']
+                elif insta['carousel_media'][i]['media_type'] == 2:
+                    url = insta['carousel_media'][i]['video_versions'][0]['url']
+
+                urls.append(url)
+
+        username = insta['user']['username']
+
+    else:
+        raise Exception(
+            "JSON content seems not to be from IG (or has an yet unsupported syntax)!")
 
     return {username: urls}
 
 
 def get_media_list_from_url(url):
     url_pattern = r'(https:\/\/www\.instagram\.com\/(?:p|reel|tv)\/[a-zA-Z0-9_-]{11}\/).*'
-    user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36'
+    user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36'
     headers = {'User-Agent': user_agent}
     media_list = {}
 
