@@ -213,20 +213,22 @@ def get_ig_urls_from_stdin():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Download Instagram media')
     parser.add_argument(
-        '-u', '--url', help='Instagram page URL of the media', type=str)
+        '-u', '--url', help='Instagram post URL containing the media to be downloaded', type=str)
     parser.add_argument(
         '-j', '--json',
-        help='File containing media data in JSON format (GraphQL)', type=str)
+        help='File containing IG post data in JSON (GraphQL) syntax', type=str)
     parser.add_argument(
         '-l',
         '--list',
-        help="Text file containing a list of IG URL's",
+        help='Text file containing a list of IG post URLs',
         type=str)
     args = parser.parse_args()
 
     if args.url is None and args.json is None and args.list is None:
-        print('Neither IG URL nor JSON file nor list of URLs provided!')
-        print('Accepting URL(s) from standard input...')
+        print('Neither IG post URL nor JSON file nor list of URLs provided!')
+        print('Accepting one or more URLs from standard input...')
+        print('(Press Ctrl-C to stop)')
+
         return_code = download_media(
             get_media_list_from_url_list(get_ig_urls_from_stdin()))
     else:
