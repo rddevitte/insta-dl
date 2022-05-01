@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 
+# Note: in order for the script to work
+# the 'wget' package must be installed,
+# by issuing one of the commands below:
+#
+#   sudo apt install python3-wget
+#   python3 -m pip install wget
+#   pip3 install wget
+
 import argparse
 import fileinput
 import json
