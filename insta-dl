@@ -221,7 +221,10 @@ def get_ig_urls_from_stdin():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Download Instagram media')
     parser.add_argument(
-        '-u', '--url', help='Instagram post URL containing the media to be downloaded', type=str)
+        '-u',
+        '--url',
+        help='Instagram post URL containing the media to be downloaded',
+        type=str)
     parser.add_argument(
         '-j', '--json',
         help='File containing IG post data in JSON (GraphQL) syntax', type=str)
