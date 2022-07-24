@@ -118,7 +118,7 @@ def parse_ig_json(content):
 
 def get_media_list_from_url(url):
     url_pattern = r'(https:\/\/www\.instagram\.com\/(?:p|reel|tv)\/[a-zA-Z0-9_-]{11}\/).*'
-    user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36'
+    user_agent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 239.2.0.17.109 (iPhone14,3; iOS 15_5; en_US; en-US; scale=3.00; 1284x2778; 376668393)'
     headers = {'User-Agent': user_agent}
     media_list = {}
 
